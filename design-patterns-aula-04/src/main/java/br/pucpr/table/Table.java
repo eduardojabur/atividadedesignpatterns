@@ -1,9 +1,10 @@
 package br.pucpr.table;
 
 import br.pucpr.table.model.TableData;
+import br.pucpr.table.model.TableDataObserver;
 import java.util.ArrayList;
 
-public final class Table {
+public final class Table implements TableDataObserver {
   private TableData data;
   private Theme theme;
   private boolean alignRight;
@@ -13,6 +14,7 @@ public final class Table {
       throw new IllegalArgumentException("Data cannot be null");
     }
     this.data = data;
+    this.data.addObserver(this);
     setTheme(theme);
     this.alignRight = alignRight;
   }
@@ -31,6 +33,8 @@ public final class Table {
 
   public void setData(TableData data) {
     this.data = data;
+    this.data.addObserver(this);
+    onDataChanged();
   }
 
   public Theme getTheme() {
@@ -68,10 +72,8 @@ public final class Table {
   private String lineFormat() {
     final var sb = new StringBuilder();
     sb.append("|");
-
     for (int i = 0; i < data.colCount(); i++) {
       final var size = data.header(i).length();
-
       sb.append(" %-").append(size).append("s |");
     }
     return sb.toString();
@@ -79,16 +81,15 @@ public final class Table {
 
   private String trimmedData(int row, int col) {
     final var colSize = getData().header(col).length();
-    final var data = getData().get(row, col);
-    if (data.length() <= colSize) return data;
-    return colSize < 3 ? ".".repeat(colSize) : data.substring(0, colSize - 3) + "...";
+    final var textData = getData().get(row, col);
+    if (textData.length() <= colSize) return textData;
+    return colSize < 3 ? ".".repeat(colSize) : textData.substring(0, colSize - 3) + "...";
   }
 
   @Override
   public String toString() {
     final var lines = new ArrayList<String>(this.getData().rowCount() + 3);
 
-    // Borda superior e cabeçalho
     final var headerLine = this.headerLine();
     final var borderLine = theme.getBorderChar().repeat(headerLine.length());
 
@@ -96,7 +97,6 @@ public final class Table {
     lines.add(headerLine);
     lines.add(borderLine);
 
-    // Linhas de dados
     for (int r = 0; r < data.rowCount(); r++) {
       final var rowData = new String[data.colCount()];
       for (int c = 0; c < data.colCount(); c++) {
@@ -105,7 +105,13 @@ public final class Table {
       lines.add(String.format(lineFormat(), (Object[]) rowData));
     }
     lines.add(borderLine);
+
     final var s = isAlignRight() ? "                    " : "";
     return lines.stream().reduce("", (a, b) -> a + s + b + "\n");
+  }
+
+  @Override
+  public void onDataChanged() {
+    this.print();
   }
 }
